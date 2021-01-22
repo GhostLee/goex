@@ -115,7 +115,7 @@ func (poloniex *Poloniex) GetDepth(size int, currency CurrencyPair) (*Depth, err
 
 	return &depth, nil
 }
-func (poloniex *Poloniex) GetKlineRecords(currency CurrencyPair, period KlinePeriod, size int, optional ...OptionalParameter) ([]Kline, error) {
+func (Poloniex *Poloniex) GetKlineRecords(currency CurrencyPair, period, size, since int) ([]Kline, error) {
 	return nil, nil
 }
 
@@ -336,7 +336,7 @@ func (poloniex *Poloniex) GetUnfinishOrders(currency CurrencyPair) ([]Order, err
 	//log.Println(orders)
 	return orders, nil
 }
-func (poloniex *Poloniex) GetOrderHistorys(currency CurrencyPair, opt ...OptionalParameter) ([]Order, error) {
+func (Poloniex *Poloniex) GetOrderHistorys(currency CurrencyPair, currentPage, pageSize int) ([]Order, error) {
 	return nil, nil
 }
 
@@ -386,7 +386,7 @@ func (poloniex *Poloniex) GetAccount() (*Account, error) {
 	return acc, nil
 }
 
-func (poloniex *Poloniex) Withdraw(amount string, currency Currency, fees, receiveAddr, safePwd string) (string, error) {
+func (p *Poloniex) Withdraw(amount string, currency Currency, fees, receiveAddr, safePwd string) (string, error) {
 	if currency == BCC {
 		currency = BCH
 	}
@@ -396,16 +396,16 @@ func (poloniex *Poloniex) Withdraw(amount string, currency Currency, fees, recei
 	params.Add("amount", amount)
 	params.Add("currency", strings.ToUpper(currency.String()))
 
-	sign, err := poloniex.buildPostForm(&params)
+	sign, err := p.buildPostForm(&params)
 	if err != nil {
 		return "", err
 	}
 
 	headers := map[string]string{
-		"Key":  poloniex.accessKey,
+		"Key":  p.accessKey,
 		"Sign": sign}
 
-	resp, err := HttpPostForm2(poloniex.client, TRADE_API, params, headers)
+	resp, err := HttpPostForm2(p.client, TRADE_API, params, headers)
 
 	if err != nil {
 		log.Println(err)

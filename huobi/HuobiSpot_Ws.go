@@ -12,11 +12,24 @@ import (
 	"time"
 )
 
+type SpotTradeResponse struct {
+	Id   int64
+	Ts   int64
+	Data []struct {
+		TradeId   int64 `json:"tradeId"`
+		Amount    float64
+		Price     float64
+		Direction string
+		Ts        int64
+	}
+}
+
 type SpotWs struct {
 	*WsBuilder
 	sync.Once
 	wsConn *WsConn
 
+	candleCallback func(*Candle)
 	tickerCallback func(*Ticker)
 	depthCallback  func(*Depth)
 	tradeCallback  func(*Trade)
@@ -43,6 +56,10 @@ func (ws *SpotWs) TickerCallback(call func(ticker *Ticker)) {
 }
 func (ws *SpotWs) TradeCallback(call func(trade *Trade)) {
 	ws.tradeCallback = call
+}
+
+func (ws *SpotWs) CandleCallback(call func(candle *Candle)) {
+	ws.candleCallback = call
 }
 
 func (ws *SpotWs) connectWs() {
@@ -73,13 +90,44 @@ func (ws *SpotWs) SubscribeTicker(pair CurrencyPair) error {
 		"id":  "spot.ticker",
 		"sub": fmt.Sprintf("market.%s.detail", pair.ToLower().ToSymbol("")),
 	})
-	return nil
 }
 
 func (ws *SpotWs) SubscribeTrade(pair CurrencyPair) error {
-	return nil
+	if ws.tickerCallback == nil {
+		return errors.New("please set ticker call back func")
+	}
+	return ws.subscribe(map[string]interface{}{
+		"id":  "spot.trade",
+		"sub": fmt.Sprintf("market.%s.trade.detail", pair.ToLower().ToSymbol(""))},
+	)
 }
 
+func (ws *SpotWs) SubscribeCandle(pair CurrencyPair, period KlinePeriod) error {
+	if ws.candleCallback == nil {
+		return errors.New("please set candle call back func")
+	}
+	periodS, isOk := _INERNAL_KLINE_PERIOD_CONVERTER[int(period)]
+	if isOk != true {
+		periodS = "1min"
+	}
+	return ws.subscribe(map[string]interface{}{
+		"id":  "spot.candle",
+		"sub": fmt.Sprintf("market.%s.kline.%s", pair.ToLower().ToSymbol(""), periodS)},
+	)
+}
+
+func (ws *SpotWs) parseTrade(r SpotTradeResponse) []Trade {
+	var trades []Trade
+	for _, v := range r.Data {
+		trades = append(trades, Trade{
+			Tid:    v.TradeId,
+			Price:  v.Price,
+			Amount: v.Amount,
+			Type:   AdaptTradeSide(v.Direction),
+			Date:   v.Ts})
+	}
+	return trades
+}
 func (ws *SpotWs) handle(msg []byte) error {
 	if bytes.Contains(msg, []byte("ping")) {
 		pong := bytes.ReplaceAll(msg, []byte("ping"), []byte("pong"))
@@ -92,7 +140,6 @@ func (ws *SpotWs) handle(msg []byte) error {
 	if err != nil {
 		return err
 	}
-
 	currencyPair := ParseCurrencyPairFromSpotWsCh(resp.Ch)
 	if strings.Contains(resp.Ch, "mbp.refresh") {
 		var (
@@ -111,8 +158,52 @@ func (ws *SpotWs) handle(msg []byte) error {
 
 		return nil
 	}
+	if strings.Contains(resp.Ch, "kline") {
+		var (
+			klineResp KlineResponse
+		)
+		periodS := strings.Split(resp.Ch, ".")[3]
+		err := json.Unmarshal(resp.Tick, &klineResp)
+		if err != nil {
+			return err
+		}
+		period := KLINE_PERIOD_1MIN
+		for idx, value := range _INERNAL_KLINE_PERIOD_CONVERTER{
+			if periodS == value {
+				period = idx
+			}
+		}
+		ws.candleCallback(&Candle{
+			Pair:      currencyPair,
+			Period: KlinePeriod(period),
+			Timestamp: klineResp.ID,
+			Open:      klineResp.Open,
+			Close:     klineResp.Close,
+			High:      klineResp.High,
+			Low:       klineResp.Low,
+			Count: 		klineResp.Count,
+			Vol:       klineResp.Vol,
+		})
 
-	if strings.Contains(resp.Ch, ".detail") {
+		return nil
+	}
+	//{
+	//"ch":"market.ethusdt.trade.detail","ts":1611162033214,"tick":{"id":116292089599,"ts":1611162033202,"data":[{"id":116292089599194888730981151,"ts":1611162033202,"tradeId":102051183444,"amount":2.3227,"price":1309.43,"direction":"buy"}]}}
+	if strings.HasSuffix(resp.Ch, ".trade.detail") {
+		var tradeResp SpotTradeResponse
+		err := json.Unmarshal(resp.Tick, &tradeResp)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+		trades := ws.parseTrade(tradeResp)
+		for _, v := range trades {
+			v.Pair = currencyPair
+			ws.tradeCallback(&v)
+		}
+		return nil
+	}
+	if strings.HasSuffix(resp.Ch, ".detail") {
 		var tickerResp DetailResponse
 		err := json.Unmarshal(resp.Tick, &tickerResp)
 		if err != nil {

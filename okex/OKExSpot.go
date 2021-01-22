@@ -5,7 +5,6 @@ import (
 	"github.com/go-openapi/errors"
 	. "github.com/nntaoli-project/goex"
 	"github.com/nntaoli-project/goex/internal/logger"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -325,16 +324,8 @@ func (ok *OKExSpot) GetUnfinishOrders(currency CurrencyPair) ([]Order, error) {
 	return ords, nil
 }
 
-func (ok *OKExSpot) GetOrderHistorys(currency CurrencyPair, optional ...OptionalParameter) ([]Order, error) {
-	urlPath := "/api/spot/v3/orders"
-
-	param := url.Values{}
-	param.Set("instrument_id", currency.AdaptUsdToUsdt().ToSymbol("-"))
-	param.Set("state", "7")
-	MergeOptionalParameter(&param, optional...)
-
-	urlPath += "?" + param.Encode()
-
+func (ok *OKExSpot) GetOrderHistorys(currency CurrencyPair, currentPage, pageSize int) ([]Order, error) {
+	urlPath := fmt.Sprintf("/api/spot/v3/orders?instrument_id=%s&state=7", currency.AdaptUsdToUsdt().ToSymbol("-"))
 	var response []OrderResponse
 	err := ok.OKEx.DoRequest("GET", urlPath, "", &response)
 	if err != nil {
@@ -423,12 +414,16 @@ func (ok *OKExSpot) GetDepth(size int, currency CurrencyPair) (*Depth, error) {
 	return dep, nil
 }
 
-func (ok *OKExSpot) GetKlineRecords(currency CurrencyPair, period KlinePeriod, size int, optional ...OptionalParameter) ([]Kline, error) {
+func (ok *OKExSpot) GetKlineRecords(currency CurrencyPair, period, size, since int) ([]Kline, error) {
 	urlPath := "/api/spot/v3/instruments/%s/candles?granularity=%d"
 
-	optParam := url.Values{}
-	MergeOptionalParameter(&optParam, optional...)
-	urlPath += "&" + optParam.Encode()
+	if since > 0 {
+		sinceTime := time.Unix(int64(since), 0).UTC()
+		if since/int(time.Second) != 1 { //如果不为秒，转为秒
+			sinceTime = time.Unix(int64(since)/int64(time.Second), 0).UTC()
+		}
+		urlPath += "&start=" + sinceTime.Format(time.RFC3339)
+	}
 
 	granularity := 60
 	switch period {

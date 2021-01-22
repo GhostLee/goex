@@ -113,7 +113,7 @@ const (
 	Withdrawal = "/trade/api/v1/withdraw"
 )
 
-var KlinePeriodConverter = map[KlinePeriod]string{
+var KlinePeriodConverter = map[int]string{
 	KLINE_PERIOD_1MIN:   "1min",
 	KLINE_PERIOD_3MIN:   "3min",
 	KLINE_PERIOD_5MIN:   "5min",
@@ -472,13 +472,13 @@ func (at *Atop) GetUnfinishOrders(currencyPair CurrencyPair) ([]Order, error) {
 }
 
 //hao
-func (at *Atop) GetKlineRecords(currency CurrencyPair, period KlinePeriod, size int, opt ...OptionalParameter) ([]Kline, error) {
+func (at *Atop) GetKlineRecords(currency CurrencyPair, period, size, since int) ([]Kline, error) {
 	pair := at.adaptCurrencyPair(currency)
 	params := url.Values{}
 	params.Set("market", pair.ToLower().String())
 	//params.Set("type", "1min") //1min,5min,15min,30min,1hour,6hour,1day,7day,30day
 	params.Set("type", KlinePeriodConverter[period]) //1min,5min,15min,30min,1hour,6hour,1day,7day,30day
-	MergeOptionalParameter(&params, opt...)
+	params.Set("since", fmt.Sprintf("%d", size))     //The first time is 0, followed by the value of the response since
 
 	klineUrl := ApiBaseUrl + GetKLine + "?" + params.Encode()
 	kLines, err := HttpGet(at.httpClient, klineUrl)
@@ -544,17 +544,18 @@ func (at *Atop) GetTrades(currencyPair CurrencyPair, since int64) ([]Trade, erro
 	return trades, nil
 }
 
-func (at *Atop) GetOrderHistorys(currency CurrencyPair, optional ...OptionalParameter) ([]Order, error) {
+func (at *Atop) GetOrderHistorys(currency CurrencyPair, currentPage, pageSize int) ([]Order, error) {
 	//panic("not support")
 	pair := at.adaptCurrencyPair(currency)
 	path := ApiBaseUrl + GetHistorys
 	params := url.Values{}
 	params.Set("market", pair.ToLower().String())
-
-	MergeOptionalParameter(&params, optional...)
+	//params.Set("type", "1")
+	//params.Set("status", "0")
+	params.Set("page", fmt.Sprint(currentPage))
+	params.Set("pageSize", fmt.Sprint(pageSize))
 
 	at.buildPostForm(&params)
-
 	resp, err := HttpPostForm(at.httpClient, path, params)
 	if err != nil {
 		return nil, err

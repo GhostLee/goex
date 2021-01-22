@@ -1,17 +1,31 @@
 package binance
 
 import (
-	"fmt"
 	"github.com/nntaoli-project/goex"
+	"net"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 )
 
 var ba = NewWithConfig(
 	&goex.APIConfig{
-		HttpClient: http.DefaultClient,
-		Endpoint:   "https://api.binancezh.pro",
+		HttpClient: &http.Client{
+			Transport: &http.Transport{
+				Proxy: func(req *http.Request) (*url.URL, error) {
+					return url.Parse("socks5://127.0.0.1:1080")
+					return nil, nil
+				},
+				Dial: (&net.Dialer{
+					Timeout: 10 * time.Second,
+				}).Dial,
+			},
+			Timeout: 10 * time.Second,
+		},
+		Endpoint:     GLOBAL_API_BASE_URL,
+		ApiKey:       "q6y6Gr7fF3jSJLncpfn2PmAA0xu4XRiRFHpFkyJy3d7K68WUxY0Gt8rrajCDUfbI",
+		ApiSecretKey: "AP8C2kh4RyISN3fpRCFMZJddf233XbPcYWQ1S7gBan3pGjCQg2JnyQFSJrIaNzRh",
 	})
 
 func TestBinance_GetTicker(t *testing.T) {
@@ -20,30 +34,26 @@ func TestBinance_GetTicker(t *testing.T) {
 }
 
 func TestBinance_LimitBuy(t *testing.T) {
-	order, err := ba.LimitBuy("3", "68.5", goex.LTC_USDT)
+	order, err := ba.LimitBuy("0.005", "8000", goex.BTC_USDT)
 	t.Log(order, err)
 }
 
 func TestBinance_LimitSell(t *testing.T) {
-	order, err := ba.LimitSell("1", "90", goex.LTC_USDT)
+	order, err := ba.LimitSell("0.01", "0.1", goex.LTC_BTC)
 	t.Log(order, err)
 }
 
 func TestBinance_CancelOrder(t *testing.T) {
-	r, er := ba.CancelOrder("3848718241", goex.BTC_USDT)
-	if !r {
-		t.Log((er.(goex.ApiError)).ErrCode)
-	}
+	t.Log(ba.CancelOrder("1156274704", goex.BTC_USDT))
 }
 
 func TestBinance_GetOneOrder(t *testing.T) {
-	odr, err := ba.GetOneOrder("3874087228", goex.BTC_USDT)
-	t.Log(err, odr)
+	t.Log(ba.GetOneOrder("1156274704", goex.BTC_USDT))
 }
 
 func TestBinance_GetDepth(t *testing.T) {
 	//return
-	dep, err := ba.GetDepth(5, goex.NewCurrencyPair2("BTC_USDT"))
+	dep, err := ba.GetDepth(5, goex.ETH_BTC)
 	t.Log(err)
 	if err == nil {
 		t.Log(dep.AskList)
@@ -53,21 +63,17 @@ func TestBinance_GetDepth(t *testing.T) {
 
 func TestBinance_GetAccount(t *testing.T) {
 	account, err := ba.GetAccount()
-	t.Log(err, account)
+	t.Log(account, err)
 }
 
 func TestBinance_GetUnfinishOrders(t *testing.T) {
-	orders, err := ba.GetUnfinishOrders(goex.NewCurrencyPair2("BTC_USDT"))
+	orders, err := ba.GetUnfinishOrders(goex.ETH_BTC)
 	t.Log(orders, err)
 }
 
 func TestBinance_GetKlineRecords(t *testing.T) {
-	startTime := time.Now().Add(-24*time.Hour).Unix() * 1000
-	endTime := time.Now().Add(-5*time.Hour).Unix() * 1000
-
-	kline, _ := ba.GetKlineRecords(goex.ETH_BTC, goex.KLINE_PERIOD_5MIN, 100,
-		goex.OptionalParameter{}.Optional("startTime", fmt.Sprint(startTime)).Optional("endTime", fmt.Sprint(endTime)))
-
+	before := time.Now().Add(-time.Hour).Unix() * 1000
+	kline, _ := ba.GetKlineRecords(goex.ETH_BTC, goex.KLINE_PERIOD_5MIN, 100, int(before))
 	for _, k := range kline {
 		tt := time.Unix(k.Timestamp, 0)
 		t.Log(tt, k.Open, k.Close, k.High, k.Low, k.Vol)
@@ -88,8 +94,5 @@ func TestBinance_SetTimeOffset(t *testing.T) {
 }
 
 func TestBinance_GetOrderHistorys(t *testing.T) {
-	t.Log(ba.GetOrderHistorys(goex.BTC_USDT,
-		goex.OptionalParameter{}.
-			Optional("startTime", "1607656034333").
-			Optional("limit", "5")))
+	t.Log(ba.GetOrderHistorys(goex.BTC_USDT, 1, 1))
 }

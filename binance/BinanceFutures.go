@@ -1,7 +1,6 @@
 package binance
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	. "github.com/nntaoli-project/goex"
@@ -26,7 +25,6 @@ type AccountResponse struct {
 	Assets   []struct {
 		Asset            string  `json:"asset"`
 		WalletBalance    float64 `json:"walletBalance,string"`
-		MarginBalance    float64 `json:"marginBalance,string"`
 		UnrealizedProfit float64 `json:"unrealizedProfit,string"`
 		MaintMargin      float64 `json:"maintMargin,string"`
 	} `json:"assets"`
@@ -263,7 +261,7 @@ func (bs *BinanceFutures) GetFutureUserinfo(currencyPair ...CurrencyPair) (*Futu
 		currency := NewCurrency(asset.Asset, "")
 		futureAccounts.FutureSubAccounts[currency] = FutureSubAccount{
 			Currency:      NewCurrency(asset.Asset, ""),
-			AccountRights: asset.MarginBalance,
+			AccountRights: asset.WalletBalance,
 			KeepDeposit:   asset.MaintMargin,
 			ProfitReal:    0,
 			ProfitUnreal:  asset.UnrealizedProfit,
@@ -543,10 +541,6 @@ func (bs *BinanceFutures) GetUnfinishFutureOrders(currencyPair CurrencyPair, con
 	return orders, nil
 }
 
-func (bs *BinanceFutures) GetFutureOrderHistory(pair CurrencyPair, contractType string, optional ...OptionalParameter) ([]FutureOrder, error) {
-	panic("implement me")
-}
-
 func (bs *BinanceFutures) GetFee() (float64, error) {
 	panic("not supported.")
 }
@@ -564,7 +558,7 @@ func (bs *BinanceFutures) GetDeliveryTime() (int, int, int, int) {
 	panic("not supported.")
 }
 
-func (bs *BinanceFutures) GetKlineRecords(contractType string, currency CurrencyPair, period KlinePeriod, size int, opt ...OptionalParameter) ([]FutureKline, error) {
+func (bs *BinanceFutures) GetKlineRecords(contractType string, currency CurrencyPair, period, size, since int) ([]FutureKline, error) {
 	panic("not supported.")
 }
 
@@ -624,10 +618,6 @@ func (bs *BinanceFutures) adaptToSymbol(pair CurrencyPair, contractType string) 
 			}
 
 			if info.ContractType == "NEXT_QUARTER" && contractType == BI_QUARTER_CONTRACT {
-				return info.Symbol, nil
-			}
-
-			if info.Symbol == contractType {
 				return info.Symbol, nil
 			}
 		}

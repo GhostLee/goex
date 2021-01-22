@@ -381,10 +381,6 @@ func (swap *HbdmSwap) GetFutureOrder(orderId string, currencyPair CurrencyPair, 
 	}, nil
 }
 
-func (swap *HbdmSwap) GetFutureOrderHistory(pair CurrencyPair, contractType string, optional ...OptionalParameter) ([]FutureOrder, error) {
-	panic("implement me")
-}
-
 func (swap *HbdmSwap) GetUnfinishFutureOrders(currencyPair CurrencyPair, contractType string) ([]FutureOrder, error) {
 	param := url.Values{}
 	param.Set("contract_code", currencyPair.ToSymbol("-"))
@@ -430,7 +426,7 @@ func (swap *HbdmSwap) GetContractValue(currencyPair CurrencyPair) (float64, erro
 	}
 }
 
-func (swap *HbdmSwap) GetKlineRecords(contractType string, currency CurrencyPair, period KlinePeriod, size int, opt ...OptionalParameter) ([]FutureKline, error) {
+func (swap *HbdmSwap) GetKlineRecords(contractType string, currency CurrencyPair, period, size, since int) ([]FutureKline, error) {
 	panic("not implement")
 }
 

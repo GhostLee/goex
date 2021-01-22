@@ -18,11 +18,23 @@ type WsResponse struct {
 	Tick json.RawMessage
 }
 
+type KlineResponse struct {
+		ID     int64     `json:"id"`
+		Amount float64 `json:"amount"`
+		Count  int64     `json:"count"`
+		Open   float64 `json:"open"`
+		Close  float64 `json:"close"`
+		Low    float64 `json:"low"`
+		High   float64 `json:"high"`
+		Vol    float64 `json:"vol"`
+}
+
 type TradeResponse struct {
 	Id   int64
 	Ts   int64
 	Data []struct {
 		Id        int64
+		TradeId   int64 `json:"trade_id,omitempty"`
 		Amount    float64
 		Price     float64
 		Direction string

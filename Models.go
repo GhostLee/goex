@@ -1,7 +1,6 @@
 package goex
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 )
@@ -123,6 +122,17 @@ type APIConfig struct {
 	Lever float64 //杠杆倍数 , for future
 }
 
+type Candle struct {
+	Pair      CurrencyPair
+	Period	KlinePeriod
+	Timestamp int64
+	Open      float64
+	Close     float64
+	High      float64
+	Low       float64
+	Count       int64
+	Vol       float64
+}
 type Kline struct {
 	Pair      CurrencyPair
 	Timestamp int64
@@ -261,38 +271,4 @@ type DepositWithdrawHistory struct {
 	Fee          string    `json:"fee"`
 	Status       int       `json:"status,string"`
 	Timestamp    time.Time `json:"timestamp"`
-}
-
-type OptionalParameter map[string]interface{}
-
-func (optional OptionalParameter) Optional(name string, value interface{}) OptionalParameter {
-	optional[name] = value
-	return optional
-}
-
-func (optional OptionalParameter) GetString(name string) string {
-	return fmt.Sprint(optional[name])
-}
-
-func (optional OptionalParameter) GetInt(name string) int {
-	return ToInt(optional[name])
-}
-
-func (optional OptionalParameter) GetInt64(name string) int64 {
-	return ToInt64(optional[name])
-}
-
-func (optional OptionalParameter) GetFloat64(name string) float64 {
-	return ToFloat64(optional[name])
-}
-
-func (optional OptionalParameter) GetTime(name string) *time.Time {
-	val := optional["name"]
-	if val != nil {
-		t, ok := val.(time.Time)
-		if ok {
-			return &t
-		}
-	}
-	return nil
 }

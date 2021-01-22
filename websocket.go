@@ -25,7 +25,6 @@ type WsConfig struct {
 	ErrorHandleFunc                func(err error)
 	ConnectSuccessAfterSendMessage func() []byte //for reconnect
 	IsDump                         bool
-	DisableEnableCompression       bool
 	readDeadLineTime               time.Duration
 	reconnectInterval              time.Duration
 }
@@ -100,11 +99,6 @@ func (b *WsBuilder) ProtoHandleFunc(f func([]byte) error) *WsBuilder {
 	return b
 }
 
-func (b *WsBuilder) DisableEnableCompression() *WsBuilder {
-	b.wsConfig.DisableEnableCompression = true
-	return b
-}
-
 func (b *WsBuilder) DecompressFunc(f func([]byte) ([]byte, error)) *WsBuilder {
 	b.wsConfig.DecompressFunc = f
 	return b
@@ -164,10 +158,6 @@ func (ws *WsConn) connect() error {
 		} else {
 			Log.Errorf("[ws][%s]parse proxy url [%s] err %s  ", ws.WsUrl, ws.ProxyUrl, err.Error())
 		}
-	}
-
-	if ws.DisableEnableCompression {
-		dialer.EnableCompression = false
 	}
 
 	wsConn, resp, err := dialer.Dial(ws.WsUrl, http.Header(ws.ReqHeaders))
@@ -274,7 +264,6 @@ func (ws *WsConn) Subscribe(subEvent interface{}) error {
 		Log.Errorf("[ws][%s] json encode error , %s", ws.WsUrl, err)
 		return err
 	}
-	Log.Debug(string(data))
 	ws.writeBufferChan <- data
 	ws.subs = append(ws.subs, data)
 	return nil
@@ -321,7 +310,6 @@ func (ws *WsConn) receiveMessage() {
 
 	ws.c.SetPingHandler(func(ping string) error {
 		Log.Debugf("[%s] received [ping] %s", ws.WsUrl, ping)
-		ws.SendPongMessage([]byte(ping))
 		ws.c.SetReadDeadline(time.Now().Add(ws.readDeadLineTime))
 		return nil
 	})

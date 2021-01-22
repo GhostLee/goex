@@ -17,7 +17,7 @@ import (
 
 var HBPOINT = NewCurrency("HBPOINT", "")
 
-var _INERNAL_KLINE_PERIOD_CONVERTER = map[KlinePeriod]string{
+var _INERNAL_KLINE_PERIOD_CONVERTER = map[int]string{
 	KLINE_PERIOD_1MIN:   "1min",
 	KLINE_PERIOD_5MIN:   "5min",
 	KLINE_PERIOD_15MIN:  "15min",
@@ -348,7 +348,6 @@ func (hbpro *HuoBiPro) MarketSell(amount, price string, currency CurrencyPair) (
 
 func (hbpro *HuoBiPro) parseOrder(ordmap map[string]interface{}) Order {
 	ord := Order{
-		Cid:        fmt.Sprint(ordmap["client-order-id"]),
 		OrderID:    ToInt(ordmap["id"]),
 		OrderID2:   fmt.Sprint(ToInt(ordmap["id"])),
 		Amount:     ToFloat64(ordmap["amount"]),
@@ -411,9 +410,12 @@ func (hbpro *HuoBiPro) GetOneOrder(orderId string, currency CurrencyPair) (*Orde
 }
 
 func (hbpro *HuoBiPro) GetUnfinishOrders(currency CurrencyPair) ([]Order, error) {
-	return hbpro.getOrders(currency, OptionalParameter{}.
-		Optional("states", "pre-submitted,submitted,partial-filled").
-		Optional("size", "100"))
+	return hbpro.getOrders(queryOrdersParams{
+		pair:   currency,
+		states: "pre-submitted,submitted,partial-filled",
+		size:   100,
+		//direct:""
+	})
 }
 
 func (hbpro *HuoBiPro) CancelOrder(orderId string, currency CurrencyPair) (bool, error) {
@@ -439,14 +441,13 @@ func (hbpro *HuoBiPro) CancelOrder(orderId string, currency CurrencyPair) (bool,
 	return true, nil
 }
 
-func (hbpro *HuoBiPro) GetOrderHistorys(currency CurrencyPair, optional ...OptionalParameter) ([]Order, error) {
-	var optionals []OptionalParameter
-	optionals = append(optionals, OptionalParameter{}.
-		Optional("states", "canceled,partial-canceled,filled").
-		Optional("size", "100").
-		Optional("direct", "next"))
-	optionals = append(optionals, optional...)
-	return hbpro.getOrders(currency, optionals...)
+func (hbpro *HuoBiPro) GetOrderHistorys(currency CurrencyPair, currentPage, pageSize int) ([]Order, error) {
+	return hbpro.getOrders(queryOrdersParams{
+		pair:   currency,
+		size:   pageSize,
+		states: "partial-canceled,filled",
+		direct: "next",
+	})
 }
 
 type queryOrdersParams struct {
@@ -460,12 +461,20 @@ type queryOrdersParams struct {
 	pair CurrencyPair
 }
 
-func (hbpro *HuoBiPro) getOrders(pair CurrencyPair, optional ...OptionalParameter) ([]Order, error) {
+func (hbpro *HuoBiPro) getOrders(queryparams queryOrdersParams) ([]Order, error) {
 	path := "/v1/order/orders"
 	params := url.Values{}
-	params.Set("symbol", strings.ToLower(pair.AdaptUsdToUsdt().ToSymbol("")))
-	MergeOptionalParameter(&params, optional...)
-	Log.Info(params)
+	params.Set("symbol", strings.ToLower(queryparams.pair.AdaptUsdToUsdt().ToSymbol("")))
+	params.Set("states", queryparams.states)
+
+	if queryparams.direct != "" {
+		params.Set("direct", queryparams.direct)
+	}
+
+	if queryparams.size > 0 {
+		params.Set("size", fmt.Sprint(queryparams.size))
+	}
+
 	hbpro.buildPostForm("GET", path, &params)
 	respmap, err := HttpGet(hbpro.httpClient, fmt.Sprintf("%s%s?%s", hbpro.baseUrl, path, params.Encode()))
 	if err != nil {
@@ -481,7 +490,7 @@ func (hbpro *HuoBiPro) getOrders(pair CurrencyPair, optional ...OptionalParamete
 	for _, v := range datamap {
 		ordmap := v.(map[string]interface{})
 		ord := hbpro.parseOrder(ordmap)
-		ord.Currency = pair
+		ord.Currency = queryparams.pair
 		orders = append(orders, ord)
 	}
 
@@ -559,7 +568,7 @@ func (hbpro *HuoBiPro) GetDepth(size int, currency CurrencyPair) (*Depth, error)
 }
 
 //倒序
-func (hbpro *HuoBiPro) GetKlineRecords(currency CurrencyPair, period KlinePeriod, size int, optional ...OptionalParameter) ([]Kline, error) {
+func (hbpro *HuoBiPro) GetKlineRecords(currency CurrencyPair, period, size, since int) ([]Kline, error) {
 	url := hbpro.baseUrl + "/market/history/kline?period=%s&size=%d&symbol=%s"
 	symbol := strings.ToLower(currency.AdaptUsdToUsdt().ToSymbol(""))
 	periodS, isOk := _INERNAL_KLINE_PERIOD_CONVERTER[period]

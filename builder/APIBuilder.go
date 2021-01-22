@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	. "github.com/nntaoli-project/goex"
 	"github.com/nntaoli-project/goex/bigone"
 	"github.com/nntaoli-project/goex/binance"
@@ -316,6 +317,7 @@ func (builder *APIBuilder) BuildFuture(exName string) (api FutureRestAPI) {
 			ApiKey:       builder.apiKey,
 			ApiSecretKey: builder.secretkey,
 		})
+
 	default:
 		println(fmt.Sprintf("%s not support future", exName))
 		return nil
@@ -331,12 +333,6 @@ func (builder *APIBuilder) BuildFuturesWs(exName string) (FuturesWsApi, error) {
 		})), nil
 	case HBDM:
 		return huobi.NewHbdmWs(), nil
-	case HBDM_SWAP:
-		return huobi.NewHbdmSwapWs(), nil
-	case BINANCE, BINANCE_FUTURES, BINANCE_SWAP:
-		return binance.NewFuturesWs(), nil
-	case BITMEX:
-		return bitmex.NewSwapWs(), nil
 	}
 	return nil, errors.New("not support the exchange " + exName)
 }
@@ -347,8 +343,6 @@ func (builder *APIBuilder) BuildSpotWs(exName string) (SpotWsApi, error) {
 		return okex.NewOKExSpotV3Ws(nil), nil
 	case HUOBI_PRO, HUOBI:
 		return huobi.NewSpotWs(), nil
-	case BINANCE:
-		return binance.NewSpotWs(), nil
 	}
 	return nil, errors.New("not support the exchange " + exName)
 }

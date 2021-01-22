@@ -324,7 +324,7 @@ func (bitstamp *Bitstamp) GetUnfinishOrders(currency CurrencyPair) ([]Order, err
 	return orders, nil
 }
 
-func (bitstamp *Bitstamp) GetOrderHistorys(currency CurrencyPair, optional ...OptionalParameter) ([]Order, error) {
+func (bitstamp *Bitstamp) GetOrderHistorys(currency CurrencyPair, currentPage, pageSize int) ([]Order, error) {
 	panic("not implement")
 }
 
@@ -388,7 +388,7 @@ func (bitstamp *Bitstamp) GetDepth(size int, currency CurrencyPair) (*Depth, err
 	return dep, nil
 }
 
-func (bitstamp *Bitstamp) GetKlineRecords(currency CurrencyPair, period KlinePeriod, size int, optional ...OptionalParameter) ([]Kline, error) {
+func (bitstamp *Bitstamp) GetKlineRecords(currency CurrencyPair, period, size, since int) ([]Kline, error) {
 	panic("not implement")
 }
 
