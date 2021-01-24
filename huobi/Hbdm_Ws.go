@@ -19,16 +19,16 @@ type WsResponse struct {
 }
 
 type KlineResponse struct {
-		ID     int64     `json:"id"`
-		Amount float64 `json:"amount"`
-		Count  int64     `json:"count"`
-		Open   float64 `json:"open"`
-		Close  float64 `json:"close"`
-		Low    float64 `json:"low"`
-		High   float64 `json:"high"`
-		Vol    float64 `json:"vol"`
+	ID     int64   `json:"id"`
+	Mrid   int64   `json:"mrid"`
+	Open   float64 `json:"open"`
+	Close  float64 `json:"close"`
+	High   float64 `json:"high"`
+	Low    float64 `json:"low"`
+	Amount int64   `json:"amount"`
+	Vol    float64 `json:"vol"`
+	Count  int64   `json:"count"`
 }
-
 type TradeResponse struct {
 	Id   int64
 	Ts   int64
@@ -77,6 +77,7 @@ type HbdmWs struct {
 	tickerCallback func(*FutureTicker)
 	depthCallback  func(*Depth)
 	tradeCallback  func(*Trade, string)
+	candleCallback func(*FutureCandle)
 }
 
 func NewHbdmWs() *HbdmWs {
@@ -103,12 +104,17 @@ func (hbdmWs *HbdmWs) SetCallbacks(tickerCallback func(*FutureTicker),
 func (hbdmWs *HbdmWs) TickerCallback(call func(ticker *FutureTicker)) {
 	hbdmWs.tickerCallback = call
 }
+
 func (hbdmWs *HbdmWs) TradeCallback(call func(trade *Trade, contract string)) {
 	hbdmWs.tradeCallback = call
 }
 
 func (hbdmWs *HbdmWs) DepthCallback(call func(depth *Depth)) {
 	hbdmWs.depthCallback = call
+}
+
+func (hbdmWs *HbdmWs) CandleCallback(call func(candle *FutureCandle)) {
+	hbdmWs.candleCallback = call
 }
 
 func (hbdmWs *HbdmWs) SubscribeTicker(pair CurrencyPair, contract string) error {
@@ -138,6 +144,20 @@ func (hbdmWs *HbdmWs) SubscribeTrade(pair CurrencyPair, contract string) error {
 		"sub": fmt.Sprintf("market.%s_%s.trade.detail", pair.CurrencyA.Symbol, hbdmWs.adaptContractSymbol(contract))})
 }
 
+func (hbdmWs *HbdmWs) SubscribeCandle(pair CurrencyPair, contract string, period KlinePeriod) error {
+	if hbdmWs.candleCallback == nil {
+		return errors.New("please set candle call back func")
+	}
+	periodS, isOk := _INERNAL_KLINE_PERIOD_CONVERTER[int(period)]
+	if isOk != true {
+		periodS = "1min"
+	}
+	return hbdmWs.subscribe(map[string]interface{}{
+		"id":  "swap.candle",
+		"sub": fmt.Sprintf("market.%s.kline.%s", pair.CurrencyA.Symbol, hbdmWs.adaptContractSymbol(contract), periodS)},
+	)
+}
+
 func (hbdmWs *HbdmWs) subscribe(sub map[string]interface{}) error {
 	//	log.Println(sub)
 	hbdmWs.connectWs()
@@ -157,7 +177,7 @@ func (hbdmWs *HbdmWs) handle(msg []byte) error {
 		hbdmWs.wsConn.SendMessage(pong)
 		return nil
 	}
-	
+
 	var resp WsResponse
 	err := json.Unmarshal(msg, &resp)
 	if err != nil {
@@ -173,6 +193,36 @@ func (hbdmWs *HbdmWs) handle(msg []byte) error {
 	if err != nil {
 		logger.Errorf("[%s] parse currency and contract err=%s", hbdmWs.wsConn.WsUrl, err)
 		return err
+	}
+	if strings.Contains(resp.Ch, ".kline.") {
+		var klineResp KlineResponse
+		err := json.Unmarshal(resp.Tick, &klineResp)
+		if err != nil {
+			return err
+		}
+
+		ch := strings.Split(resp.Ch, ".")
+		currencyPair := ParseCurrencyPairFromSpotWsCh(resp.Ch)
+		periodS := ch[3]
+		period := KLINE_PERIOD_1MIN
+		for idx, value := range _INERNAL_KLINE_PERIOD_CONVERTER {
+			if periodS == value {
+				period = idx
+			}
+		}
+		hbdmWs.candleCallback(&FutureCandle{
+			Pair:      currencyPair,
+			Period:    KlinePeriod(period),
+			Timestamp: klineResp.ID,
+			Open:      klineResp.Open,
+			Close:     klineResp.Close,
+			High:      klineResp.High,
+			Low:       klineResp.Low,
+			Count:     klineResp.Count,
+			Vol:       klineResp.Vol,
+			Amount:    klineResp.Amount,
+		})
+		return nil
 	}
 
 	if strings.Contains(resp.Ch, ".depth.") {

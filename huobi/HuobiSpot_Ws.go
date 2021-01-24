@@ -12,6 +12,17 @@ import (
 	"time"
 )
 
+type SpotKlineResponse struct {
+	ID     int64     `json:"id"`
+	Amount float64 `json:"amount"`
+	Count  int64     `json:"count"`
+	Open   float64 `json:"open"`
+	Close  float64 `json:"close"`
+	Low    float64 `json:"low"`
+	High   float64 `json:"high"`
+	Vol    float64 `json:"vol"`
+}
+
 type SpotTradeResponse struct {
 	Id   int64
 	Ts   int64
@@ -160,7 +171,7 @@ func (ws *SpotWs) handle(msg []byte) error {
 	}
 	if strings.Contains(resp.Ch, "kline") {
 		var (
-			klineResp KlineResponse
+			klineResp SpotKlineResponse
 		)
 		periodS := strings.Split(resp.Ch, ".")[3]
 		err := json.Unmarshal(resp.Tick, &klineResp)

@@ -133,6 +133,19 @@ type Candle struct {
 	Count       int64
 	Vol       float64
 }
+
+type FutureCandle struct {
+	Pair      CurrencyPair
+	Period	KlinePeriod
+	Timestamp int64
+	Open      float64
+	Close     float64
+	High      float64
+	Low       float64
+	Count       int64
+	Vol       float64
+	Amount int64
+}
 type Kline struct {
 	Pair      CurrencyPair
 	Timestamp int64
